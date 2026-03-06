@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Common Knowledge Hub</title>
+<style>
+  :root {
+    --bg:        #0a0a0a;
+    --surface:   #111111;
+    --border:    #1e1e1e;
+    --accent:    #00d4aa;
+    --accent2:   #4e9af1;
+    --red:       #e05c5c;
+    --yellow:    #f0c060;
+    --text:      #e8e8e8;
+    --muted:     #666;
+    --running:   #00d4aa;
+    --stopped:   #666;
+    --crashed:   #e05c5c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Titlebar ── */
+  #titlebar {
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+    -webkit-app-region: drag;
+    flex-shrink: 0;
+  }
+  #titlebar .logo {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    -webkit-app-region: no-drag;
+  }
+  #titlebar .subtitle {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  #titlebar .network-badge {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    -webkit-app-region: no-drag;
+    cursor: pointer;
+  }
+
+  /* ── Layout ── */
+  #layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 200px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .nav-item {
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--muted);
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,212,170,0.06); }
+  .nav-item .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--stopped);
+    flex-shrink: 0;
+  }
+  .nav-item .dot.running { background: var(--running); box-shadow: 0 0 6px var(--running); }
+  .nav-item .dot.crashed { background: var(--crashed); }
+
+  /* ── Main ── */
+  #main {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+  .panel.active { display: flex; }
+
+  .panel-header {
+    padding: 20px 24px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .panel-header h2 { font-size: 18px; font-weight: 600; padding-bottom: 16px; }
+  .panel-header .desc { font-size: 12px; color: var(--muted); padding-bottom: 18px; }
+
+  .panel-body { padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+  /* ── Service card ── */
+  .service-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .service-card .info { flex: 1; }
+  .service-card .info h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .service-card .info p  { font-size: 12px; color: var(--muted); }
+  .service-card .status {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+  .status-running  { background: rgba(0,212,170,0.1); color: var(--running); }
+  .status-stopped  { background: rgba(102,102,102,0.1); color: var(--muted); }
+  .status-crashed  { background: rgba(224,92,92,0.1); color: var(--red); }
+  .status-starting { background: rgba(78,154,241,0.1); color: var(--accent2); }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 8px 18px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-danger  { background: rgba(224,92,92,0.15); color: var(--red); border: 1px solid rgba(224,92,92,0.3); }
+  .btn-danger:hover { background: rgba(224,92,92,0.25); }
+  .btn-ghost   { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: #444; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Log console ── */
+  .log-console {
+    background: #050505;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    height: 220px;
+    overflow-y: auto;
+    color: #aaa;
+    flex-shrink: 0;
+  }
+  .log-console .log-line { line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+  .log-console .log-line.err { color: var(--red); }
+
+  /* ── Hub overview ── */
+  .hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .hub-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .hub-card:hover { border-color: #333; }
+  .hub-card .icon { font-size: 28px; margin-bottom: 10px; }
+  .hub-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .hub-card p  { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .hub-card .card-status { margin-top: 12px; }
+
+  /* ── Settings ── */
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-row label { font-size: 13px; }
+  .settings-row .hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .settings-row input[type=text], .settings-row select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    width: 220px;
+  }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Titlebar -->
+<div id="titlebar">
+  <span class="logo">⬡ Common Knowledge Hub</span>
+  <span class="subtitle">Nervos Stack Launcher</span>
+  <span class="network-badge" id="networkBadge" onclick="toggleNetwork()">mainnet</span>
+</div>
+
+<div id="layout">
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="nav-item active" data-panel="hub" onclick="showPanel('hub')">
+      <span class="dot" id="dot-hub"></span> Hub
+    </div>
+    <div class="nav-item" data-panel="ckbNode" onclick="showPanel('ckbNode')">
+      <span class="dot" id="dot-ckbNode"></span> Full Node
+    </div>
+    <div class="nav-item" data-panel="fiberNode" onclick="showPanel('fiberNode')">
+      <span class="dot" id="dot-fiberNode"></span> Fiber Node
+    </div>
+    <div class="nav-item" data-panel="lightClient" onclick="showPanel('lightClient')">
+      <span class="dot" id="dot-lightClient"></span> Light Client
+    </div>
+    <div class="nav-item" data-panel="stratum" onclick="showPanel('stratum')">
+      <span class="dot" id="dot-stratum"></span> Mining Proxy
+    </div>
+    <div class="nav-item" data-panel="settings" onclick="showPanel('settings')" style="margin-top:auto">
+      <span class="dot" style="background:transparent"></span> Settings
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <div id="main">
+
+    <!-- Hub overview -->
+    <div class="panel active" id="panel-hub">
+      <div class="panel-header">
+        <h2>Hub</h2>
+        <span class="desc">Your Nervos stack at a glance</span>
+      </div>
+      <div class="panel-body">
+        <div class="hub-grid" id="hubGrid"></div>
+      </div>
+    </div>
+
+    <!-- Full Node -->
+    <div class="panel" id="panel-ckbNode">
+      <div class="panel-header">
+        <h2>CKB Full Node</h2>
+        <span class="desc">Nervos Layer 1 — full chain validation</span>
+      </div>
+      <div class="panel-body">
+        <div class="service-card" id="card-ckbNode">
+          <div class="info">
+            <h3>ckb</h3>
+            <p id="info-ckbNode">Not running</p>
+          </div>
+          <span class="status status-stopped" id="status-ckbNode">Stopped</span>
+          <button class="btn btn-primary" id="btn-ckbNode" onclick="toggleService('ckbNode')">Start</button>
+        </div>
+        <div class="log-console" id="log-ckbNode"><div class="log-line" style="color:#444">— no output —</div></div>
+      </div>
+    </div>
+
+    <!-- Fiber Node -->
+    <div class="panel" id="panel-fiberNode">
+      <div class="panel-header">
+        <h2>Fiber Node</h2>
+        <span class="desc">CKB payment channels — Lightning-style micropayments</span>
+      </div>
+      <div class="panel-body">
+        <div class="service-card" id="card-fiberNode">
+          <div class="info">
+            <h3>fnn</h3>
+            <p id="info-fiberNode">Not running</p>
+          </div>
+          <span class="status status-stopped" id="status-fiberNode">Stopped</span>
+          <button class="btn btn-primary" id="btn-fiberNode" onclick="toggleService('fiberNode')">Start</button>
+        </div>
+        <div class="log-console" id="log-fiberNode"><div class="log-line" style="color:#444">— no output —</div></div>
+      </div>
+    </div>
+
+    <!-- Light Client -->
+    <div class="panel" id="panel-lightClient">
+      <div class="panel-header">
+        <h2>Light Client</h2>
+        <span class="desc">Minimal CKB client — sync headers only, no full block data</span>
+      </div>
+      <div class="panel-body">
+        <div class="service-card" id="card-lightClient">
+          <div class="info">
+            <h3>ckb-light-client</h3>
+            <p id="info-lightClient">Not running</p>
+          </div>
+          <span class="status status-stopped" id="status-lightClient">Stopped</span>
+          <button class="btn btn-primary" id="btn-lightClient" onclick="toggleService('lightClient')">Start</button>
+        </div>
+        <div class="log-console" id="log-lightClient"><div class="log-line" style="color:#444">— no output —</div></div>
+      </div>
+    </div>
+
+    <!-- Mining Proxy -->
+    <div class="panel" id="panel-stratum">
+      <div class="panel-header">
+        <h2>Mining Proxy</h2>
+        <span class="desc">Stratum proxy — connect miners to a pool or solo mine</span>
+      </div>
+      <div class="panel-body">
+        <div class="service-card" id="card-stratum">
+          <div class="info">
+            <h3>Stratum Proxy</h3>
+            <p id="info-stratum">Not running</p>
+          </div>
+          <span class="status status-stopped" id="status-stratum">Stopped</span>
+          <button class="btn btn-primary" id="btn-stratum" onclick="toggleService('stratum')">Start</button>
+        </div>
+        <div class="log-console" id="log-stratum"><div class="log-line" style="color:#444">— no output —</div></div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="panel" id="panel-settings">
+      <div class="panel-header">
+        <h2>Settings</h2>
+        <span class="desc">Configure your CKH stack</span>
+      </div>
+      <div class="panel-body" id="settingsBody">
+        <div class="settings-row">
+          <div><label>Network</label><div class="hint">mainnet or testnet</div></div>
+          <select id="cfg-network">
+            <option value="mainnet">Mainnet</option>
+            <option value="testnet">Testnet</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div><label>CKB Node — data directory</label><div class="hint">Where chain data is stored</div></div>
+          <input type="text" id="cfg-ckbDataDir" placeholder="~/.ckh/ckb-data">
+        </div>
+        <div class="settings-row">
+          <div><label>Fiber Node — data directory</label></div>
+          <input type="text" id="cfg-fiberDataDir" placeholder="~/.ckh/fiber-data">
+        </div>
+        <div class="settings-row">
+          <div><label>Mining proxy — upstream pool</label><div class="hint">e.g. ckb.viabtc.com</div></div>
+          <input type="text" id="cfg-stratumPool" placeholder="ckb.viabtc.com">
+        </div>
+        <div class="settings-row">
+          <div><label>Mining proxy — upstream port</label></div>
+          <input type="text" id="cfg-stratumPort" placeholder="3333">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:8px">
+          <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+          <button class="btn btn-ghost" onclick="loadSettings()">Reset</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────
+let config = {};
+let serviceStates = {};
+
+const SERVICE_META = {
+  ckbNode:     { icon: '⛓', label: 'Full Node',     desc: 'CKB Layer 1 full chain validation' },
+  fiberNode:   { icon: '⚡', label: 'Fiber Node',    desc: 'Payment channels + micropayments' },
+  lightClient: { icon: '🔦', label: 'Light Client',  desc: 'Header-only sync, low resource' },
+  stratum:     { icon: '⛏',  label: 'Mining Proxy',  desc: 'Connect miners to pool or solo' },
+};
+
+// ── Init ─────────────────────────────────────────────────────────
+async function init() {
+  config = await window.ckh.getConfig();
+  serviceStates = await window.ckh.getServices();
+  renderHub();
+  loadSettings();
+  updateAllStatus();
+
+  // Real-time log + status updates
+  window.ckh.onServiceLog(({ id, line }) => appendLog(id, line));
+  window.ckh.onServiceStatus(({ id, status }) => {
+    serviceStates[id] = { ...(serviceStates[id] || {}), status };
+    updateStatus(id, status);
+    renderHub();
+  });
+}
+
+// ── Navigation ───────────────────────────────────────────────────
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + id)?.classList.add('active');
+  document.querySelector(`[data-panel="${id}"]`)?.classList.add('active');
+}
+
+// ── Hub grid ─────────────────────────────────────────────────────
+function renderHub() {
+  const grid = document.getElementById('hubGrid');
+  grid.innerHTML = Object.entries(SERVICE_META).map(([id, meta]) => {
+    const state = serviceStates[id]?.status || 'stopped';
+    return `
+      <div class="hub-card" onclick="showPanel('${id}')">
+        <div class="icon">${meta.icon}</div>
+        <h3>${meta.label}</h3>
+        <p>${meta.desc}</p>
+        <div class="card-status">
+          <span class="status status-${state}">${state.charAt(0).toUpperCase() + state.slice(1)}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Service control ───────────────────────────────────────────────
+async function toggleService(id) {
+  const state = serviceStates[id]?.status || 'stopped';
+  const btn = document.getElementById('btn-' + id);
+  btn.disabled = true;
+
+  if (state === 'running') {
+    await window.ckh.stopService(id);
+  } else {
+    updateStatus(id, 'starting');
+    const result = await window.ckh.startService(id);
+    if (!result.ok) {
+      appendLog(id, `Error: ${result.error}\n`, true);
+      updateStatus(id, 'stopped');
+    }
+  }
+  btn.disabled = false;
+}
+
+function updateStatus(id, status) {
+  serviceStates[id] = { ...(serviceStates[id] || {}), status };
+
+  const el   = document.getElementById('status-' + id);
+  const btn  = document.getElementById('btn-' + id);
+  const dot  = document.getElementById('dot-' + id);
+  const info = document.getElementById('info-' + id);
+
+  if (!el) return;
+
+  el.className = `status status-${status}`;
+  el.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+  btn.textContent = status === 'running' ? 'Stop' : 'Start';
+  btn.className = status === 'running' ? 'btn btn-danger' : 'btn btn-primary';
+
+  if (dot) {
+    dot.className = 'dot';
+    if (status === 'running') dot.classList.add('running');
+    if (status === 'crashed') dot.classList.add('crashed');
+  }
+
+  if (info) {
+    const pid = serviceStates[id]?.pid;
+    info.textContent = status === 'running' ? `Running${pid ? ' · PID ' + pid : ''}` : 'Not running';
+  }
+}
+
+function updateAllStatus() {
+  for (const [id, state] of Object.entries(serviceStates)) {
+    updateStatus(id, state.status || 'stopped');
+    if (state.logTail?.length) {
+      state.logTail.forEach(line => appendLog(id, line));
+    }
+  }
+}
+
+function appendLog(id, line, isErr = false) {
+  const console = document.getElementById('log-' + id);
+  if (!console) return;
+  const placeholder = console.querySelector('[style*="color:#444"]');
+  if (placeholder) placeholder.remove();
+
+  const div = document.createElement('div');
+  div.className = 'log-line' + (isErr ? ' err' : '');
+  div.textContent = line;
+  console.appendChild(div);
+  console.scrollTop = console.scrollHeight;
+}
+
+// ── Settings ─────────────────────────────────────────────────────
+function loadSettings() {
+  document.getElementById('cfg-network').value       = config.network || 'mainnet';
+  document.getElementById('cfg-ckbDataDir').value    = config.services?.ckbNode?.dataDir || '';
+  document.getElementById('cfg-fiberDataDir').value  = config.services?.fiberNode?.dataDir || '';
+  document.getElementById('cfg-stratumPool').value   = config.services?.stratum?.upstreamPool || '';
+  document.getElementById('cfg-stratumPort').value   = config.services?.stratum?.upstreamPort || '3333';
+  document.getElementById('networkBadge').textContent = config.network || 'mainnet';
+}
+
+async function saveSettings() {
+  config.network = document.getElementById('cfg-network').value;
+  config.services.ckbNode.dataDir    = document.getElementById('cfg-ckbDataDir').value;
+  config.services.fiberNode.dataDir  = document.getElementById('cfg-fiberDataDir').value;
+  config.services.stratum.upstreamPool = document.getElementById('cfg-stratumPool').value;
+  config.services.stratum.upstreamPort = parseInt(document.getElementById('cfg-stratumPort').value);
+  await window.ckh.saveConfig(config);
+  document.getElementById('networkBadge').textContent = config.network;
+}
+
+async function toggleNetwork() {
+  config.network = config.network === 'mainnet' ? 'testnet' : 'mainnet';
+  await window.ckh.saveConfig(config);
+  loadSettings();
+}
+
+// ── Boot ─────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
