@@ -251,6 +251,7 @@ function initOpts(c){
     p2pPort:   s.p2pPort    ||c.p2pPort||8228,
     network:   config.network||'mainnet',
     runMode:   s.runMode    ||'managed',
+    syncMode:  s.syncMode   ||'snapshot',
     indexer:   s.indexer    !==false,
     richIndexer:s.richIndexer!==false,
     subscription:s.subscription||false,
@@ -441,6 +442,25 @@ function buildOptRows(c, o){
 
   // CKB full node extras
   if(c.id==='ckbNode'){
+    rows.push(`<div class="or sh"><span>Initial sync</span></div>`);
+    rows.push(`<div class="or">
+      <div><div class="ol">Sync mode</div><div class="oh">How the node gets its initial chain data</div></div>
+      <div class="oc">
+        <div class="rg" id="syncModeGroup">
+          <label><input type="radio" name="syncMode" value="full" ${(o.syncMode||'snapshot')==='full'?'checked':''}> <div><strong>Full sync</strong><div style="font-size:11px;color:var(--muted)">Download and verify every block from genesis. Most trustless. Takes days.</div></div></label>
+          <label style="margin-top:6px"><input type="radio" name="syncMode" value="trusted" ${o.syncMode==='trusted'?'checked':''}> <div><strong>Trusted fast sync</strong><div style="font-size:11px;color:var(--muted)">Skip verification of historical blocks. Syncs in hours. Trusts checkpoint.</div></div></label>
+          <label style="margin-top:6px"><input type="radio" name="syncMode" value="snapshot" ${(o.syncMode||'snapshot')==='snapshot'?'checked':''}> <div><strong>Snapshot (recommended)</strong><div style="font-size:11px;color:var(--muted)">Download verified chain snapshot from Wyltek Industries. Ready in minutes.</div></div></label>
+        </div>
+      </div>
+    </div>`);
+    // Snapshot sub-options (shown when snapshot selected)
+    rows.push(`<div class="or" id="snapshotRow" style="${(o.syncMode||'snapshot')!=='snapshot'?'display:none':''}">
+      <div><div class="ol">Snapshot source</div><div class="oh">Latest verified snapshot from snapshots.wyltekindustries.com</div></div>
+      <div class="oc" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <span id="snapshotMeta" style="font-size:11px;color:var(--muted)">Checking…</span>
+        <button class="btn btn-g btn-sm" onclick="checkSnapshot()">Check latest</button>
+      </div>
+    </div>`);
     rows.push(`<div class="or sh"><span>Services</span></div>`);
     rows.push(optRow('Indexer','Required for wallet queries and balance lookups',
       `<input type="checkbox" id="o-${c.id}-indexer" ${o.indexer?'checked':''}>`));
@@ -503,6 +523,7 @@ function saveOpts(id){
     o.runMode = gr('runMode')||o.runMode;
   }
   if(id==='ckbNode'){
+    o.syncMode     = document.querySelector('input[name="syncMode"]:checked')?.value||'snapshot';
     o.indexer      = g('indexer')?.checked;
     o.richIndexer  = g('richIndexer')?.checked;
     o.subscription = g('subscription')?.checked;
@@ -612,6 +633,35 @@ async function toggleNetwork(){
 }
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Show/hide snapshot row when sync mode changes
+document.addEventListener('change', e=>{
+  if(e.target.name==='syncMode'){
+    const row=document.getElementById('snapshotRow');
+    if(row) row.style.display=e.target.value==='snapshot'?'':'none';
+    if(e.target.value==='snapshot') checkSnapshot();
+  }
+});
+
+// Fetch latest snapshot metadata from WI
+async function checkSnapshot(){
+  const el=document.getElementById('snapshotMeta');
+  if(!el) return;
+  el.textContent='Checking…';
+  el.style.color='var(--muted)';
+  try{
+    const res=await fetch('https://snapshots.wyltekindustries.com/latest.json');
+    if(!res.ok) throw new Error('HTTP '+res.statusCode);
+    const d=await res.json();
+    const date=d.date||d.block_height||'unknown';
+    const size=d.size_gb?`${d.size_gb} GB`:d.size||'';
+    el.textContent=`Latest: ${date}${size?' · '+size:''} · SHA256 verified ✓`;
+    el.style.color='var(--accent)';
+  }catch(e){
+    el.textContent='Unable to check — will fetch at install time';
+    el.style.color='var(--muted)';
+  }
+}
 
 init();
 </script>

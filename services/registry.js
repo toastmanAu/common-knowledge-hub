@@ -31,6 +31,11 @@ const REGISTRY = [
       'win32-x64':   { url: `https://github.com/nervosnetwork/ckb/releases/download/v${CKB_VERSION}/ckb_v${CKB_VERSION}_x86_64-pc-windows-msvc.zip`, bin: 'ckb.exe' },
     },
     rpcPort: 8114,
+    syncModes: {
+      full:     { label: 'Full sync',           desc: 'Download and verify every block from genesis. Most trustless. Takes days.' },
+      trusted:  { label: 'Trusted fast sync',   desc: 'Skip historical block verification. Syncs in hours.' },
+      snapshot: { label: 'Snapshot (WI)',        desc: 'Download verified snapshot from snapshots.wyltekindustries.com. Ready in minutes.', url: 'https://snapshots.wyltekindustries.com/latest.json' },
+    },
     configTemplate: 'ckb.toml.template',
     tags: ['full-node', 'validator'],
   },
