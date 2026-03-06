@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('ckh', {
   getConfig:           ()          => ipcRenderer.invoke('get-config'),
   saveConfig:          (cfg)       => ipcRenderer.invoke('save-config', cfg),
+  saveComponentConfig: (id)        => ipcRenderer.invoke('save-component-config', id),
   getPlatform:         ()          => ipcRenderer.invoke('get-platform'),
   getRegistry:         ()          => ipcRenderer.invoke('get-registry'),
   getDiskFree:         ()          => ipcRenderer.invoke('get-disk-free'),

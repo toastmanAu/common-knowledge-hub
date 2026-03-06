@@ -562,10 +562,11 @@ function saveOpts(id){
     if(g('listenPort'))   o.listenPort   = parseInt(g('listenPort').value);
   }
 
-  // Persist to config
+  // Persist to config + write TOML/YAML immediately
   config.services = config.services||{};
   config.services[id] = {...(config.services[id]||{}), ...o};
   window.ckh.saveConfig(config);
+  window.ckh.saveComponentConfig(id);
 }
 
 function resetOpts(id){

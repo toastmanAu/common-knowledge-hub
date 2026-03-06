@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const { getRegistry } = require('../services/registry');
 const installer = require('../services/installer');
 const monitor = require('../services/monitor');
+const configWriter = require('../services/config-writer');
 
 const IS_DEV = process.argv.includes('--dev');
 const CKH_DIR = path.join(os.homedir(), '.ckh');
@@ -77,7 +78,24 @@ ipcMain.handle('install-component', async (event, componentId) => {
 
   try {
     await installer.install(component);
+    // Write default config immediately after install
+    const cfg = loadConfig();
+    const o = cfg.services?.[componentId] || {};
+    const dataDir = o.dataDir || path.join(CKH_DIR, componentId + '-data');
+    writeComponentConfig(componentId, dataDir, o, cfg.network || 'mainnet');
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('save-component-config', (_, componentId) => {
+  const cfg = loadConfig();
+  const o = cfg.services?.[componentId] || {};
+  const dataDir = o.dataDir || path.join(CKH_DIR, componentId + '-data');
+  try {
+    const confPath = writeComponentConfig(componentId, dataDir, o, cfg.network || 'mainnet');
+    return { ok: true, confPath };
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -192,5 +210,20 @@ app.on('window-all-closed', () => {
   for (const [, p] of Object.entries(procs)) {
     if (p.status === 'running') p.process?.kill('SIGTERM');
   }
+  monitor.stopAll();
   if (process.platform !== 'darwin') app.quit();
 });
+
+// ── Config writing helper ─────────────────────────────────────────
+function writeComponentConfig(id, dataDir, opts, network) {
+  switch (id) {
+    case 'ckbNode':
+      return configWriter.writeCkbConfig(dataDir, { ...opts, network });
+    case 'fiberNode':
+      return configWriter.writeFiberConfig(dataDir, { ...opts, network });
+    case 'lightClient':
+      return configWriter.writeLightConfig(dataDir, { ...opts, network });
+    default:
+      return null;
+  }
+}
