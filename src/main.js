@@ -5,6 +5,7 @@ const os = require('os');
 const { spawn } = require('child_process');
 const { getRegistry } = require('../services/registry');
 const installer = require('../services/installer');
+const monitor = require('../services/monitor');
 
 const IS_DEV = process.argv.includes('--dev');
 const CKH_DIR = path.join(os.homedir(), '.ckh');
@@ -44,6 +45,7 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, 'index.html'));
   if (IS_DEV) win.webContents.openDevTools();
+  attachMonitorForwarding(win);
   return win;
 }
 
@@ -107,6 +109,14 @@ ipcMain.handle('stop-service', (_, componentId) => {
 });
 
 ipcMain.handle('open-external', (_, url) => shell.openExternal(url));
+ipcMain.handle('get-monitor-status', () => monitor.getAllStatus());
+
+// Forward monitor status events to renderer
+function attachMonitorForwarding(win) {
+  monitor.on('status', (status) => {
+    if (!win.isDestroyed()) win.webContents.send('monitor-status', status);
+  });
+}
 ipcMain.handle('get-disk-free', () => {
   // Return free space on home partition (bytes)
   try {
@@ -155,7 +165,18 @@ function startService(component, cfg, sender) {
     entry.status = code === 0 ? 'stopped' : 'crashed';
     entry.process = null;
     sender?.send('service-status', { id: component.id, status: entry.status, code });
+    monitor.stop(component.id);
   });
+
+  // Start monitoring after short delay (let service initialise)
+  const cfg = loadConfig();
+  setTimeout(() => {
+    monitor.start(component.id, {
+      rpcPort:   cfg.services?.[component.id]?.rpcPort || component.rpcPort,
+      statsPort: 8081,
+      interval:  5000,
+    });
+  }, 8000);
 
   return { ok: true, pid: proc.pid };
 }

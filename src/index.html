@@ -161,6 +161,7 @@ body{font-family:-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:
   <nav id="sidebar">
     <div class="ns">Stack</div>
     <div class="ni active" data-v="hub" onclick="showView('hub')"><span class="dot"></span>Components</div>
+    <div class="ni" data-v="console" onclick="showView('console')"><span class="dot" id="dot-console"></span>Console</div>
     <div class="ns-div"></div>
     <div class="ns">Services</div>
     <div id="svcNav"><div style="padding:5px 18px;font-size:11px;color:var(--muted2)">None installed</div></div>
@@ -176,6 +177,24 @@ body{font-family:-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:
       <div class="h-title">Components</div>
       <div class="h-sub">Click a component to view details, configure, and install.</div>
       <div id="compList" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+
+    <!-- Console -->
+    <div class="view" id="view-console">
+      <div class="h-title">Console</div>
+      <div class="h-sub">Live status of all running services.</div>
+      <div id="consoleCards" style="display:flex;flex-direction:column;gap:12px;margin-top:4px"></div>
+      <!-- Raw log section -->
+      <div style="margin-top:8px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div class="st" style="margin:0">Output log</div>
+          <select id="logSvcSel" onchange="switchConsolLog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px">
+            <option value="">— select service —</option>
+          </select>
+          <button class="btn btn-g btn-sm" onclick="clearConsoleLog()" style="margin-left:auto">Clear</button>
+        </div>
+        <div class="log-box" id="consoleLog" style="height:220px"><span style="color:#333">Select a running service to view output</span></div>
+      </div>
     </div>
 
     <!-- Detail -->
@@ -227,6 +246,7 @@ async function init(){
   document.getElementById('netBadge').textContent=config.network||'mainnet';
   registry.forEach(c=>initOpts(c));
   renderHub(); renderSvcNav(); loadSettings();
+  initMonitor();
 
   window.ckh.onInstallProgress(onInstProg);
   window.ckh.onServiceLog(({id,line})=>{
@@ -276,6 +296,11 @@ function showView(id, compId){
     bsep.style.display='none'; bcur.style.display='none';
     bhome.classList.add('cur'); bhome.style.cursor='default';
     curDetail=null;
+  } else if(id==='console'){
+    bsep.style.display=''; bcur.style.display='';
+    bhome.classList.remove('cur'); bhome.style.cursor='pointer';
+    bcur.textContent='Console';
+    renderConsole();
   } else {
     bsep.style.display=''; bcur.style.display='';
     bhome.classList.remove('cur'); bhome.style.cursor='pointer';
@@ -630,6 +655,136 @@ async function toggleNetwork(){
   config.network=config.network==='mainnet'?'testnet':'mainnet';
   await window.ckh.saveConfig(config);
   document.getElementById('netBadge').textContent=config.network;
+}
+
+// ── Console ──────────────────────────────────────────────────────
+let monitorData = {};
+let consoleLogId = null;
+
+function renderConsole() {
+  const running = registry.filter(c => c.status === 'running');
+  const el = document.getElementById('consoleCards');
+
+  if (!running.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No services running. Start a service to see status here.</div>';
+    return;
+  }
+
+  el.innerHTML = running.map(c => {
+    const m = monitorData[c.id];
+    return `<div class="sc" style="border-radius:10px;padding:0;overflow:hidden;border:1px solid var(--border)">
+      <div style="background:var(--surface2);padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
+        <span style="font-size:16px">${c.icon}</span>
+        <span style="font-size:13px;font-weight:600">${c.label}</span>
+        <span class="badge ${m?.ok===false?'bc':'br'}" style="margin-left:auto">${m?.ok===false?'Error':'Running'}</span>
+        <button class="btn btn-stop btn-sm" onclick="doStop('${c.id}')">Stop</button>
+      </div>
+      <div style="padding:14px 16px">${renderServiceStats(c.id, m)}</div>
+    </div>`;
+  }).join('');
+
+  // Update log selector
+  const sel = document.getElementById('logSvcSel');
+  sel.innerHTML = '<option value="">— select service —</option>' +
+    running.map(c => `<option value="${c.id}" ${consoleLogId===c.id?'selected':''}>${c.label}</option>`).join('');
+}
+
+function renderServiceStats(id, m) {
+  if (!m) return '<div style="color:var(--muted);font-size:12px">Initialising — waiting for first poll…</div>';
+  if (m.ok === false) return `<div style="color:var(--red);font-size:12px">⚠ ${m.error || 'Unable to reach service RPC'}</div>`;
+
+  const stats = {
+    ckbNode: () => {
+      const synced = parseFloat(m.syncPct) >= 99.9;
+      return grid([
+        stat('Block', m.localBlock?.toLocaleString() || '—', m.ibd ? `Syncing — ${m.syncPct}%` : 'Tip'),
+        stat('Sync', m.syncPct + '%', synced ? '✓ Synced' : `of ${m.tipBlock?.toLocaleString()}`),
+        stat('Peers', m.peers, 'connected'),
+        stat('Mempool', m.pendingTx, `${m.proposedTx} proposed`),
+      ]) + (m.ibd ? progressBar(parseFloat(m.syncPct)) : '');
+    },
+    fiberNode: () => grid([
+      stat('Peers', m.peers, 'connected'),
+      stat('Channels', m.channels, 'open'),
+      stat('Capacity', m.totalCapacity ? (m.totalCapacity / 1e8).toFixed(2) + ' CKB' : '—', 'local balance'),
+    ]),
+    lightClient: () => grid([
+      stat('Peers', m.peers, 'connected'),
+      stat('Scripts', m.scripts, 'watched'),
+    ]),
+    stratum: () => grid([
+      stat('Miners', m.miners, 'connected'),
+      stat('Template', m.hasTemplate ? '✓ Ready' : '✗ None', ''),
+    ]),
+  };
+
+  return (stats[id] || (() => '<div style="color:var(--muted);font-size:12px">No detailed stats available</div>'))();
+}
+
+function stat(label, value, sub) {
+  return `<div style="min-width:100px">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">${label}</div>
+    <div style="font-size:18px;font-weight:700">${value ?? '—'}</div>
+    <div style="font-size:11px;color:var(--muted)">${sub || ''}</div>
+  </div>`;
+}
+
+function grid(items) {
+  return `<div style="display:flex;gap:24px;flex-wrap:wrap">${items.join('')}</div>`;
+}
+
+function progressBar(pct) {
+  return `<div style="margin-top:12px">
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px">
+      <span>Chain sync</span><span>${pct.toFixed(1)}%</span>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+function switchConsolLog() {
+  consoleLogId = document.getElementById('logSvcSel').value || null;
+  const box = document.getElementById('consoleLog');
+  box.innerHTML = '';
+  if (!consoleLogId) { box.innerHTML = '<span style="color:#333">Select a running service to view output</span>'; return; }
+  (logBuffers[consoleLogId] || []).forEach(line => {
+    const d = document.createElement('div');
+    d.className = 'll' + (line.toLowerCase().includes('error') ? ' err' : '');
+    d.textContent = line;
+    box.appendChild(d);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearConsoleLog() {
+  if (consoleLogId) logBuffers[consoleLogId] = [];
+  document.getElementById('consoleLog').innerHTML = '<span style="color:#333">Cleared</span>';
+}
+
+// ── Monitor events ────────────────────────────────────────────────
+function initMonitor() {
+  window.ckh.onMonitorStatus(status => {
+    monitorData[status.id] = status;
+    const dot = document.getElementById('dot-console');
+    if (dot) dot.className = 'dot run';
+    // Refresh console if visible
+    if (document.getElementById('view-console').classList.contains('active')) renderConsole();
+  });
+  // Also log to console log box if selected
+  window.ckh.onServiceLog(({ id, line }) => {
+    if (consoleLogId === id) {
+      const box = document.getElementById('consoleLog');
+      if (box) {
+        const placeholder = box.querySelector('span');
+        if (placeholder) placeholder.remove();
+        const d = document.createElement('div');
+        d.className = 'll' + (line.toLowerCase().includes('error') ? ' err' : '');
+        d.textContent = line;
+        box.appendChild(d);
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+  });
 }
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
