@@ -1,0 +1,18 @@
+[Unit]
+Description=Common Knowledge Hub — CKB Node Stack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=phill
+WorkingDirectory=/home/phill/ckh
+ExecStart=/usr/bin/node /home/phill/ckh/src/main.js --sbc
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=CKH_MODE=sbc
+Environment=CKH_PORT=3000
+
+[Install]
+WantedBy=multi-user.target

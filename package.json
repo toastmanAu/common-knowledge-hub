@@ -1,11 +1,12 @@
 {
   "name": "common-knowledge-hub",
-  "version": "0.1.0",
-  "description": "Nervos CKB stack launcher — full node, Fiber, light client, mining proxy, dashboards",
+  "version": "0.2.0",
+  "description": "Nervos CKB stack — full node, Fiber, Chess, DOB minting. Desktop (Electron) + SBC kiosk.",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
+    "sbc": "node src/main.js --sbc",
     "build": "electron-builder",
     "build:linux-arm64": "electron-builder --linux --arm64",
     "build:linux-x64": "electron-builder --linux --x64",
@@ -16,29 +17,17 @@
     "appId": "com.wyltek.ckh",
     "productName": "Common Knowledge Hub",
     "copyright": "Copyright © 2026 Wyltek Industries",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "src/**/*",
-      "assets/**/*",
-      "node_modules/**/*"
-    ],
+    "directories": { "output": "dist" },
+    "files": ["src/**/*", "lib/**/*", "ui/**/*", "assets/**/*", "node_modules/**/*"],
     "linux": {
       "target": ["AppImage", "deb"],
       "category": "Network",
-      "icon": "assets/icon.png"
+      "icon": "assets/icons/icon.png"
     },
-    "mac": {
-      "target": ["dmg"],
-      "icon": "assets/icon.icns"
-    },
-    "win": {
-      "target": ["nsis"],
-      "icon": "assets/icon.ico"
-    }
+    "mac": { "target": ["dmg"], "icon": "assets/icons/icon.icns" },
+    "win": { "target": ["nsis"], "icon": "assets/icons/icon.ico" }
   },
-  "keywords": ["nervos", "ckb", "fiber", "blockchain", "node"],
+  "keywords": ["nervos", "ckb", "fiber", "blockchain", "node", "chess"],
   "author": "Wyltek Industries <hello@wyltekindustries.com>",
   "license": "MIT",
   "devDependencies": {
@@ -46,6 +35,7 @@
     "electron-builder": "^25.0.0"
   },
   "dependencies": {
+    "chess.js": "^1.3.0",
     "node-pty": "^1.0.0"
   }
 }

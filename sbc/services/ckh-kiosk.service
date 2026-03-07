@@ -1,0 +1,16 @@
+[Unit]
+Description=Common Knowledge Hub — Kiosk Display
+After=ckh.service graphical.target
+Wants=ckh.service
+
+[Service]
+Type=simple
+User=phill
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/phill/.Xauthority
+ExecStart=/usr/bin/node /home/phill/ckh/sbc/kiosk/launch.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target
