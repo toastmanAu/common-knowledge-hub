@@ -11,31 +11,66 @@
     "build:linux-arm64": "electron-builder --linux --arm64",
     "build:linux-x64": "electron-builder --linux --x64",
     "build:mac": "electron-builder --mac",
-    "build:win": "electron-builder --win"
+    "build:win": "electron-builder --win",
+    "ui:dev": "vite",
+    "ui:build": "vite build",
+    "dev:sbc": "concurrently \"node src/server.js\" \"vite\""
   },
   "build": {
     "appId": "com.wyltek.ckh",
     "productName": "Common Knowledge Hub",
     "copyright": "Copyright © 2026 Wyltek Industries",
-    "directories": { "output": "dist" },
-    "files": ["src/**/*", "lib/**/*", "ui/**/*", "assets/**/*", "node_modules/**/*"],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "lib/**/*",
+      "ui/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Network",
       "icon": "assets/icons/icon.png"
     },
-    "mac": { "target": ["dmg"], "icon": "assets/icons/icon.icns" },
-    "win": { "target": ["nsis"], "icon": "assets/icons/icon.ico" }
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icons/icon.icns"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icons/icon.ico"
+    }
   },
-  "keywords": ["nervos", "ckb", "fiber", "blockchain", "node", "chess"],
+  "keywords": [
+    "nervos",
+    "ckb",
+    "fiber",
+    "blockchain",
+    "node",
+    "chess"
+  ],
   "author": "Wyltek Industries <hello@wyltekindustries.com>",
   "license": "MIT",
   "devDependencies": {
     "electron": "^34.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.0.0",
+    "vite": "^5.0.0",
+    "@preact/preset-vite": "^2.8.0",
+    "concurrently": "^8.0.0"
   },
   "dependencies": {
     "chess.js": "^1.3.0",
-    "node-pty": "^1.0.0"
+    "node-pty": "^1.0.0",
+    "preact": "^10.19.0"
   }
 }
